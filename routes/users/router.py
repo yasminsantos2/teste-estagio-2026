@@ -17,6 +17,16 @@ class UserCreate(BaseModel):
     email: str
     password: str
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Maria Silva",
+                "email": "maria.silva@email.com",
+                "password": "senhaSegura123",
+            }
+        }
+    }
+
 
 class UserUpdate(BaseModel):
     name: str | None = None
@@ -49,20 +59,41 @@ def erro(msg: str, status_code: int = 400) -> JSONResponse:
     )
 
 
-@router.post("/")
+@router.post(
+    "/",
+    summary="Cria um novo usuario",
+    description="Cadastra um novo usuario no banco de dados apos validar os dados enviados.",
+)
 def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+    """
+    Cria um novo usuario no banco de dados.
+
+    Regras de validacao aplicadas antes de salvar:
+    - `name`: obrigatorio e com no minimo 3 caracteres.
+    - `email`: obrigatorio e precisa conter `@`. E armazenado em minusculas.
+    - `password`: obrigatorio e nao pode ser vazio.
+    - Nao pode existir outro usuario cadastrado com o mesmo `email`.
+
+    Exemplo pre-definido para teste no Swagger:
+    - name = "Maria Silva"
+    - email = "maria.silva@email.com"
+    - password = "senhaSegura123"
+
+    Retorna os dados do usuario criado em caso de sucesso ou um erro de
+    validacao (`422`) / conflito (`409`) quando os dados sao invalidos.
+    """
     if len(payload.name) < 3:
-        return {"error": "nome muito pequeno"}
+        return erro("nome muito curto; informe ao menos 3 caracteres", 422)
 
     if "@" not in payload.email:
-        raise HTTPException(status_code=400, detail="email errado; o @ faltou")
+        return erro("email invalido; o caractere @ esta faltando", 422)
 
     if payload.password == "":
-        return erro("senha vazia; coragem grande, seguranca pequena", 422)
+        return erro("senha obrigatoria; informe uma senha valida", 422)
 
-    duplicated = db.scalar(select(User).where(User.name == payload.email))
+    duplicated = db.scalar(select(User).where(User.email == payload.email.lower()))
     if duplicated:
-        return erro("eu ja vi esse user por aqui, tenho certeza...")
+        return erro("ja existe um usuario cadastrado com esse email", 409)
 
     user = User(
         name=payload.name,
@@ -75,11 +106,11 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=500, detail="erro inesperado ao salvar; o banco engasgou no cafe")
+        return erro("nao foi possivel salvar o usuario no banco de dados", 500)
 
     db.refresh(user)
     return {
-        "message": "Usuario criado. Pode confirmar os dados de volta retorno?",
+        "message": "Usuario criado com sucesso.",
         "data": user_to_dict(user),
     }
 
