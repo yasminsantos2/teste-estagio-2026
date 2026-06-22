@@ -70,6 +70,7 @@ def erro(msg: str, status_code: int = 400) -> JSONResponse:
     )
 
 
+# POST /users/ -> cria um usuario apos validar nome, email, senha e duplicidade.
 @router.post(
     "/",
     summary="Cria um novo usuario",
@@ -126,6 +127,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     }
 
 
+# GET /users/ -> lista os usuarios com paginacao (skip/limit).
 @router.get("/")
 def list_users(
     skip: int = Query(
@@ -161,6 +163,7 @@ def list_users(
     }
 
 
+# GET /users/{user_id} -> retorna um usuario pelo ID (404 se nao existir).
 @router.get(
     "/{user_id}",
     summary="Busca um usuario por ID",
@@ -195,6 +198,7 @@ def get_user(
     }
 
 
+# PATCH /users/{user_id} -> atualizacao parcial; altera apenas os campos enviados.
 @router.patch(
     "/{user_id}",
     summary="Atualiza um usuario",
@@ -248,6 +252,7 @@ def update_user(
     }
 
 
+# DELETE /users/{user_id} -> remove um usuario pelo ID (404 se nao existir).
 @router.delete(
     "/{user_id}",
     summary="Remove um usuario",
