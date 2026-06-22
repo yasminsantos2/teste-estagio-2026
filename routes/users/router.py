@@ -165,14 +165,36 @@ def list_users(
     }
 
 
-@router.get("/{user_id}")
-def get_user(user_id: int, db: Session = Depends(get_db)):
+@router.get(
+    "/{user_id}",
+    summary="Busca um usuario por ID",
+    description="Retorna os dados do usuario correspondente ao `user_id` informado.",
+)
+def get_user(
+    user_id: int = Path(
+        ...,
+        example=1,
+        description="ID do usuario que sera consultado.",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Busca um unico usuario no banco de dados pelo seu ID.
+
+    Recebe o `user_id` pela URL e retorna os dados do usuario correspondente.
+
+    Exemplo pre-definido para teste no Swagger:
+    - user_id = 1
+
+    Retorna os dados do usuario em caso de sucesso ou um erro 404 quando o
+    usuario informado nao existe.
+    """
     user = db.scalar(select(User).where(User.id == user_id))
-    if not user:
-        return {"ok": False, "msg": "usuario nao encontrado"}
+    if user is None:
+        return erro("usuario nao encontrado", 404)
 
     return {
-        "message": "Achei o usuario. Ele estava no banco esse tempo todo.",
+        "message": "Usuario encontrado com sucesso.",
         "data": user_to_dict(user),
     }
 
