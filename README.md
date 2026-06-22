@@ -133,6 +133,74 @@ python -m pytest tests/test_users.py -k delete
 
 ---
 
+## 🗂️ Modelo de Dados
+
+Diagrama de classe da entidade `User` (tabela `users`):
+
+```mermaid
+classDiagram
+    class User {
+        +int id
+        +str name
+        +str email
+        +str password
+        +bool is_active
+        +datetime created_at
+        +datetime~None~ updated_at
+    }
+```
+
+| Campo | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `int` | PK, indexado | Identificador único do usuário |
+| `name` | `str(120)` | obrigatório | Nome do usuário |
+| `email` | `str(255)` | obrigatório, indexado | E-mail do usuário |
+| `password` | `str(255)` | obrigatório | Senha do usuário |
+| `is_active` | `bool` | obrigatório, default `true` | Indica se o usuário está ativo |
+| `created_at` | `datetime` | obrigatório, default `utc_now` | Data de criação do registro |
+| `updated_at` | `datetime \| None` | opcional | Data da última atualização |
+
+---
+
+## 🧩 Diagrama de Casos de Uso
+
+Representação dos casos de uso da API a partir do ator que a consome:
+
+```mermaid
+flowchart LR
+    actor(("👤 Cliente da API"))
+
+    subgraph API["API de Usuários"]
+        uc1(["Criar usuário"])
+        uc2(["Listar usuários"])
+        uc3(["Buscar usuário por ID"])
+        uc4(["Atualizar usuário"])
+        uc5(["Remover usuário"])
+    end
+
+    actor --> uc1
+    actor --> uc2
+    actor --> uc3
+    actor --> uc4
+    actor --> uc5
+
+    uc1 -. valida e persiste .-> DB[("Banco de Dados")]
+    uc2 -. consulta .-> DB
+    uc3 -. consulta .-> DB
+    uc4 -. atualiza .-> DB
+    uc5 -. remove .-> DB
+```
+
+| Caso de uso | Endpoint | Descrição |
+|---|---|---|
+| Criar usuário | `POST /users/` | Cadastra um novo usuário após validar os dados |
+| Listar usuários | `GET /users/` | Lista os usuários com paginação (`skip`/`limit`) |
+| Buscar usuário por ID | `GET /users/{user_id}` | Retorna um usuário específico |
+| Atualizar usuário | `PATCH /users/{user_id}` | Atualiza parcialmente os dados de um usuário |
+| Remover usuário | `DELETE /users/{user_id}` | Exclui um usuário do banco |
+
+---
+
 ## 📦 O Que Esperamos na Entrega
 
 Sua entrega deve conter:
