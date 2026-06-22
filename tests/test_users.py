@@ -25,6 +25,12 @@ class TestCreateUser:
         assert response.status_code == 200
         assert response.json()["data"]["email"] == "maria@email.com"
 
+    def test_create_user_nao_expoe_senha(self, client):
+        response = client.post("/users/", json=_payload())
+
+        assert response.status_code == 200
+        assert "password" not in response.json()["data"]
+
     def test_create_user_nome_curto(self, client):
         response = client.post("/users/", json=_payload(name="ab"))
 

@@ -19,11 +19,7 @@ def get_user_by_email(db: Session, email: str) -> User | None:
 
 
 def create_user(db: Session, name: str, email: str, password: str) -> User:
-    user = User(
-        name=name.strip(),
-        email=email.strip().lower(),
-        password=password,
-    )
+    user = User(name=name, email=email, password=password)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -40,9 +36,9 @@ def update_user(
     is_active: bool | None = None,
 ) -> User:
     if name is not None:
-        user.name = name.strip()
+        user.name = name
     if email is not None:
-        user.email = email.strip().lower()
+        user.email = email
     if password is not None:
         user.password = password
     if is_active is not None:

@@ -37,6 +37,9 @@ class UserService:
         self.db = db
 
     def create(self, name: str, email: str, password: str) -> User:
+        name = name.strip()
+        email = email.strip().lower()
+
         if len(name) < 3:
             raise UserValidationError("nome muito curto; informe ao menos 3 caracteres")
         if "@" not in email:
@@ -44,7 +47,7 @@ class UserService:
         if password == "":
             raise UserValidationError("senha obrigatoria; informe uma senha valida")
 
-        if users_repo.get_user_by_email(self.db, email.strip().lower()):
+        if users_repo.get_user_by_email(self.db, email):
             raise DuplicateEmailError("ja existe um usuario cadastrado com esse email")
 
         try:
@@ -74,6 +77,11 @@ class UserService:
         is_active: bool | None = None,
     ) -> User:
         user = self.get(user_id)
+        if name is not None:
+            name = name.strip()
+        if email is not None:
+            email = email.strip().lower()
+
         return users_repo.update_user(
             self.db,
             user,

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -35,3 +37,35 @@ class UserUpdate(BaseModel):
             }
         }
     }
+
+
+# DTO de saida que representa um usuario (sem expor a senha).
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# Envelope de resposta para operacoes com um unico usuario.
+class UserMessageResponse(BaseModel):
+    message: str
+    data: UserResponse
+
+
+# Envelope de resposta para a listagem de usuarios.
+class UserListResponse(BaseModel):
+    message: str
+    total: int
+    data: list[UserResponse]
+
+
+# Envelope de resposta para a remocao de um usuario.
+class UserDeleteResponse(BaseModel):
+    status: str
+    id: int
+    message: str

@@ -92,9 +92,10 @@ A aplicação segue uma **arquitetura em camadas**, com responsabilidades bem se
 
 ```mermaid
 flowchart TD
-    Client["👤 Cliente HTTP"] -->|requisicao| Router
+    Client["👤 Cliente HTTP"] -->|requisicao + DTO de entrada| Router
 
     subgraph App["Aplicação FastAPI"]
+        Schemas["Schemas (routes/users/schemas)<br/>DTOs de entrada e saida"]
         Router["Router (routes/users)<br/>HTTP + injecao de dependencia"]
         Service["Service (services/users)<br/>regras de negocio + validacoes"]
         Repository["Repository (repository/users)<br/>acesso a dados"]
@@ -104,6 +105,7 @@ flowchart TD
 
     DB[("Banco de Dados<br/>SQLite")]
 
+    Schemas -. valida entrada/saida .- Router
     Router -->|get_user_service| Service
     Service -->|funcoes de CRUD| Repository
     Repository -->|SQLAlchemy| Entity
@@ -112,29 +114,35 @@ flowchart TD
     Service -. lanca .-> Errors{{"UserServiceError<br/>(404 / 409 / 422 / 500)"}}
     Errors -. capturado por .-> Handler
     Handler -->|resposta de erro padrao| Client
-    Router -->|resposta de sucesso| Client
+    Router -->|response_model de sucesso| Client
 ```
 
 **Fluxo de uma requisição:**
 
-1. O **Router** recebe a requisição HTTP e injeta o `UserService` via `Depends(get_user_service)`.
+1. O **Router** recebe a requisição HTTP, valida o corpo com o **DTO de entrada** (`UserCreate`/`UserUpdate`) e injeta o `UserService` via `Depends(get_user_service)`.
 2. O **Service** aplica as regras de negócio (validações, duplicidade) e orquestra a operação.
 3. O **Repository** executa o acesso ao banco usando SQLAlchemy.
 4. A **Entity** representa a tabela `users` no banco.
-5. Erros de negócio são lançados como exceções de domínio (`UserServiceError` e subclasses) e convertidos em respostas padronizadas pelo **Exception Handler** registrado no `main.py`.
+5. Na resposta de sucesso, o **`response_model`** (`UserResponse` e envelopes) serializa a saída de forma padronizada, **sem expor a senha**.
+6. Erros de negócio são lançados como exceções de domínio (`UserServiceError` e subclasses) e convertidos em respostas padronizadas pelo **Exception Handler** registrado no `main.py`.
 
 | Camada | Pasta | Responsabilidade |
 |---|---|---|
-| Router | `routes/users` | HTTP, validação de formato, injeção de dependência, formatação da resposta |
-| Service | `services/users` | Regras de negócio, validações de domínio, orquestração |
-| Repository | `repository/users` | Acesso a dados (queries e persistência) |
-| Entity | `entities/user` | Modelo ORM (mapeamento da tabela) |
+| Router | `routes/users/router.py` | HTTP, injeção de dependência, `response_model` |
+| Schemas (DTOs) | `routes/users/schemas.py` | Contrato de entrada (validação) e de saída (`response_model`, sem expor a senha) |
+| Service | `services/users.py` | Regras de negócio, validações de domínio, orquestração |
+| Repository | `repository/users.py` | Acesso a dados (queries e persistência) |
+| Entity | `entities/user.py` | Modelo ORM (mapeamento da tabela) |
+| Exception Handler | `main.py` | Traduz erros de domínio para o formato de resposta padrão |
 
 ---
 
 ## 🧪 Testes
 
-O projeto possui uma suíte de testes automatizados com **pytest** que cobre todos os endpoints de usuários.
+O projeto possui uma suíte de testes automatizados com **pytest**, organizada em **dois níveis** complementares:
+
+* **Testes de integração** (`tests/test_users.py`) → exercitam o fluxo HTTP completo via `TestClient`, validando status codes e o formato das respostas de cada endpoint.
+* **Testes unitários** (`tests/test_user_service.py`) → exercitam a regra de negócio do `UserService` de forma isolada (sem HTTP), validando as exceções de domínio diretamente.
 
 ### Configuração do ambiente de testes
 
@@ -145,7 +153,8 @@ Arquivos relacionados:
 * `requirements-dev.txt` → dependências de desenvolvimento/teste (`pytest`, `httpx`);
 * `pytest.ini` → configuração do pytest (descoberta de testes e opções);
 * `tests/conftest.py` → fixtures que preparam o banco em memória e o cliente de teste;
-* `tests/test_users.py` → testes dos endpoints de usuários.
+* `tests/test_users.py` → testes de integração dos endpoints de usuários;
+* `tests/test_user_service.py` → testes unitários da camada de service.
 
 ### Instalar dependências de teste
 
@@ -244,6 +253,53 @@ flowchart LR
 | Buscar usuário por ID | `GET /users/{user_id}` | Retorna um usuário específico |
 | Atualizar usuário | `PATCH /users/{user_id}` | Atualiza parcialmente os dados de um usuário |
 | Remover usuário | `DELETE /users/{user_id}` | Exclui um usuário do banco |
+
+---
+
+## ✅ Melhorias Realizadas
+
+Resumo das alterações feitas sobre a base de código original:
+
+### Correções de bugs
+
+* **`delete_user` removia o usuário errado** — a query usava `User.id == user_id + 1`. Corrigido para o `id` correto.
+* **Verificação de duplicidade ineficaz no `create_user`** — comparava `User.name == email`. Corrigido para comparar `User.email`.
+* **`is_active=false` era ignorado no `update_user`** — a checagem `if campo:` descartava valores falsy. Trocado por `is not None`.
+* **`updated_at` não era atualizado no PATCH** — agora é preenchido a cada atualização.
+
+### Padronização
+
+* Respostas de erro unificadas (formato e status codes corretos: `404`, `409`, `422`, `500`).
+* Mensagens de sucesso/erro reescritas em tom profissional.
+* E-mail sempre normalizado para minúsculas.
+
+### Arquitetura
+
+* Introdução de uma **arquitetura em camadas** (`router → service → repository → entity`).
+* Camada de **service** com regras de negócio e **injeção de dependência** (`Depends(get_user_service)`).
+* **DTOs** de entrada extraídos para `routes/users/schemas.py`.
+* **Exception handler** centralizado para traduzir erros de domínio.
+* Integração da camada de **repository** (antes não utilizada) como única fonte de acesso a dados.
+
+### Documentação e testes
+
+* Documentação **Swagger** completa (summary, description, docstrings e exemplos).
+* Suíte de **testes automatizados** (integração + unitários).
+* Diagramas de arquitetura, modelo de dados e casos de uso no README.
+
+### Limpeza
+
+* Removido o endpoint legado `POST /users/create` (redundante e com bugs).
+* Removido o endpoint de debug `/debug/users-count` e helpers não utilizados do `main.py`.
+* Migração de `example` (depreciado) para `examples` na documentação.
+
+### Pontos mapeados para evolução futura
+
+Itens identificados e propositalmente deixados para uma próxima etapa:
+
+* **Segurança da senha:** hoje a senha é armazenada em texto plano e retornada nas respostas. Recomenda-se aplicar hash e introduzir um DTO de saída (`UserResponse`) que a omita.
+* **Unicidade de e-mail no banco:** a coluna `email` deveria ter `unique=True` para garantir a integridade também no nível do banco.
+* **Validação de e-mail:** poderia usar `EmailStr` do Pydantic para uma validação mais robusta.
 
 ---
 

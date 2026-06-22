@@ -1,29 +1,22 @@
 from fastapi import APIRouter, Depends, Path, Query
 
-from entities.user import User
-from routes.users.schemas import UserCreate, UserUpdate
+from routes.users.schemas import (
+    UserCreate,
+    UserDeleteResponse,
+    UserListResponse,
+    UserMessageResponse,
+    UserUpdate,
+)
 from services.users import UserService, get_user_service
 
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
-# Converte o modelo ORM em um dicionario serializavel para a resposta.
-def user_to_dict(user: User) -> dict:
-    return {
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "password": user.password,
-        "is_active": user.is_active,
-        "created_at": str(user.created_at),
-        "updated_at": str(user.updated_at),
-    }
-
-
 # POST /users/ -> cria um usuario apos validar nome, email, senha e duplicidade.
 @router.post(
     "/",
+    response_model=UserMessageResponse,
     summary="Cria um novo usuario",
     description="Cadastra um novo usuario no banco de dados apos validar os dados enviados.",
 )
@@ -51,12 +44,12 @@ def create_user(
     user = service.create(payload.name, payload.email, payload.password)
     return {
         "message": "Usuario criado com sucesso.",
-        "data": user_to_dict(user),
+        "data": user,
     }
 
 
 # GET /users/ -> lista os usuarios com paginacao (skip/limit).
-@router.get("/")
+@router.get("/", response_model=UserListResponse)
 def list_users(
     skip: int = Query(
         default=0,
@@ -87,13 +80,14 @@ def list_users(
     return {
         "message": "Lista de usuarios retornada com sucesso.",
         "total": len(users),
-        "data": [user_to_dict(user) for user in users],
+        "data": users,
     }
 
 
 # GET /users/{user_id} -> retorna um usuario pelo ID (404 se nao existir).
 @router.get(
     "/{user_id}",
+    response_model=UserMessageResponse,
     summary="Busca um usuario por ID",
     description="Retorna os dados do usuario correspondente ao `user_id` informado.",
 )
@@ -119,13 +113,14 @@ def get_user(
     user = service.get(user_id)
     return {
         "message": "Usuario encontrado com sucesso.",
-        "data": user_to_dict(user),
+        "data": user,
     }
 
 
 # PATCH /users/{user_id} -> atualizacao parcial; altera apenas os campos enviados.
 @router.patch(
     "/{user_id}",
+    response_model=UserMessageResponse,
     summary="Atualiza um usuario",
     description="Atualiza parcialmente os dados do usuario correspondente ao `user_id` informado.",
 )
@@ -165,13 +160,14 @@ def update_user(
     )
     return {
         "message": "Usuario atualizado com sucesso.",
-        "data": user_to_dict(user),
+        "data": user,
     }
 
 
 # DELETE /users/{user_id} -> remove um usuario pelo ID (404 se nao existir).
 @router.delete(
     "/{user_id}",
+    response_model=UserDeleteResponse,
     summary="Remove um usuario",
     description="Apaga do banco de dados o usuario correspondente ao `user_id` informado.",
 )
