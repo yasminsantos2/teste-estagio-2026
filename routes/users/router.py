@@ -1,45 +1,11 @@
 from fastapi import APIRouter, Depends, Path, Query
-from pydantic import BaseModel
 
 from entities.user import User
+from routes.users.schemas import UserCreate, UserUpdate
 from services.users import UserService, get_user_service
 
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-class UserCreate(BaseModel):
-    name: str
-    email: str
-    password: str
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "Maria Silva",
-                "email": "maria.silva@email.com",
-                "password": "senhaSegura123",
-            }
-        }
-    }
-
-
-class UserUpdate(BaseModel):
-    name: str | None = None
-    email: str | None = None
-    password: str | None = None
-    is_active: bool | None = None
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "Maria Silva",
-                "email": "maria.silva@email.com",
-                "password": "senhaSegura123",
-                "is_active": True,
-            }
-        }
-    }
 
 
 # Converte o modelo ORM em um dicionario serializavel para a resposta.
