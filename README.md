@@ -86,6 +86,41 @@ http://localhost:8000/api/users/docs
 
 ---
 
+## 🧪 Testes
+
+O projeto possui uma suíte de testes automatizados com **pytest** que cobre todos os endpoints de usuários.
+
+### Configuração do ambiente de testes
+
+Os testes rodam de forma isolada, sem afetar o banco de dados real (`dev.db`). Cada teste utiliza um banco **SQLite em memória** criado e destruído automaticamente, e a dependência `get_db` é sobrescrita para apontar para esse banco temporário.
+
+Arquivos relacionados:
+
+* `requirements-dev.txt` → dependências de desenvolvimento/teste (`pytest`, `httpx`);
+* `pytest.ini` → configuração do pytest (descoberta de testes e opções);
+* `tests/conftest.py` → fixtures que preparam o banco em memória e o cliente de teste;
+* `tests/test_users.py` → testes dos endpoints de usuários.
+
+### Instalar dependências de teste
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+### Executar os testes
+
+```bash
+python -m pytest
+```
+
+Para ver a cobertura de cenários de um endpoint específico:
+
+```bash
+python -m pytest tests/test_users.py -k delete
+```
+
+---
+
 ## 📌 Endpoints Disponíveis
 
 * `POST /users/`

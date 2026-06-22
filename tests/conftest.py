@@ -1,0 +1,53 @@
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+import entities.user  # noqa: F401  garante o registro do modelo nas metadatas
+from database import Base, get_db
+from main import app
+
+
+@pytest.fixture()
+def db_session():
+    """Cria um banco SQLite em memoria isolado para cada teste."""
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine,
+    )
+
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+
+@pytest.fixture()
+def client(db_session):
+    """Cliente de teste com a dependencia get_db apontando para o banco em memoria."""
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    # Instanciamos sem context manager de proposito para nao disparar o lifespan
+    # da aplicacao (que criaria/abriria o banco real dev.db).
+    test_client = TestClient(app)
+    try:
+        yield test_client
+    finally:
+        app.dependency_overrides.clear()
