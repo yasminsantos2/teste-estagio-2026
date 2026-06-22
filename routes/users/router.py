@@ -130,12 +130,12 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
 def list_users(
     skip: int = Query(
         default=0,
-        example=0,
+        examples=[0],
         description="Quantos usuarios pular antes de comecar a listar (paginacao).",
     ),
     limit: int = Query(
         default=100,
-        example=10,
+        examples=[10],
         description="Numero maximo de usuarios retornados na resposta.",
     ),
     db: Session = Depends(get_db),
@@ -169,7 +169,7 @@ def list_users(
 def get_user(
     user_id: int = Path(
         ...,
-        example=1,
+        examples=[1],
         description="ID do usuario que sera consultado.",
     ),
     db: Session = Depends(get_db),
@@ -203,7 +203,7 @@ def get_user(
 def update_user(
     user_id: int = Path(
         ...,
-        example=1,
+        examples=[1],
         description="ID do usuario que sera atualizado.",
     ),
     payload: UserUpdate = ...,
@@ -256,7 +256,7 @@ def update_user(
 def delete_user(
     user_id: int = Path(
         ...,
-        example=1,
+        examples=[1],
         description="ID do usuario que sera removido.",
     ),
     db: Session = Depends(get_db),

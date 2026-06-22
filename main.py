@@ -5,12 +5,14 @@ from database import create_database
 from routes.users import router as users_router
 
 
+# Cria as tabelas no banco durante a inicializacao da aplicacao.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_database()
     yield
 
 
+# Docs nativas desativadas; expostas em rota customizada abaixo.
 app = FastAPI(
     lifespan=lifespan,
     docs_url=None,
@@ -19,6 +21,7 @@ app = FastAPI(
 )
 
 
+# Swagger UI servido em um caminho proprio da API.
 @app.get("/api/users/docs", include_in_schema=False)
 async def custom_docs():
     return get_swagger_ui_html(
@@ -27,9 +30,11 @@ async def custom_docs():
     )
 
 
+# Registra os endpoints de usuarios.
 app.include_router(users_router)
 
 
+# Permite rodar a API diretamente com `python main.py`.
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
