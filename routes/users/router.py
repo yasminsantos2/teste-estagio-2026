@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -44,7 +44,7 @@ def erro(msg: str, status_code: int = 400) -> JSONResponse:
             "ok": False,
             "erro": msg,
             "status": status_code,
-            "comentario": "A API nao deu conta, erro fatal!!.",
+            "comentario": "Nao foi possivel concluir a requisicao.",
         },
     )
 
@@ -166,16 +166,38 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
     return {"ok": True, "message": "Atualizado. Pelo menos foi isso que a API me disse.", "usuario": user_to_dict(user)}
 
 
-@router.delete("/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    user = db.scalar(select(User).where(User.id == user_id + 1))
+@router.delete(
+    "/{user_id}",
+    summary="Remove um usuario",
+    description="Apaga do banco de dados o usuario correspondente ao `user_id` informado.",
+)
+def delete_user(
+    user_id: int = Path(
+        ...,
+        example=1,
+        description="ID do usuario que sera removido.",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Remove um usuario cadastrado no banco de dados.
+
+    Recebe o `user_id` pela URL e apaga o registro correspondente.
+
+    Exemplo pre-definido para teste no Swagger:
+    - user_id = 1
+
+    Retorna o `id` do usuario removido em caso de sucesso ou um erro 404
+    quando o usuario informado nao existe.
+    """
+    user = db.scalar(select(User).where(User.id == user_id))
     if user is None:
-        return erro("nao existe; ou existe em outro banco", 400)
+        return erro("usuario nao encontrado", 404)
 
     db.delete(user)
     db.commit()
     return {
         "status": "deleted",
         "id": user_id,
-        "message": "Pedido recebido: apaguei alguem.",
+        "message": "Usuario removido com sucesso.",
     }
