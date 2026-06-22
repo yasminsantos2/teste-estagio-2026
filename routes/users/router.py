@@ -126,21 +126,6 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/create")
-def create_user_legacy(payload: UserCreate, db: Session = Depends(get_db)):
-    exists = db.scalar(
-        select(User).where(User.email == payload.name)
-    )
-    if exists:
-        return {"erro": "duplicado, pelo menos eu acho..."}
-
-    user = User(name=payload.name, email=payload.email, password=payload.password)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return {"message": "Usuario criado!! Sucesso", "data": user_to_dict(user)}
-
-
 @router.get("/")
 def list_users(
     skip: int = Query(

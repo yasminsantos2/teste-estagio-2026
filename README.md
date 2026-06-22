@@ -129,6 +129,8 @@ python -m pytest tests/test_users.py -k delete
 * `PATCH /users/{user_id}`
 * `DELETE /users/{user_id}`
 
+> **Nota:** o endpoint legado `POST /users/create` foi **removido** por ser redundante com `POST /users/` e por conter bugs (verificação de duplicidade incorreta e ausência de validações). Como o projeto não possui consumidores externos, optei pela remoção; em um cenário de produção, a rota seria marcada como `deprecated` antes de uma remoção definitiva.
+
 ---
 
 ## 📦 O Que Esperamos na Entrega
