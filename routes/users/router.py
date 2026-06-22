@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -100,7 +100,32 @@ def create_user_legacy(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/")
-def list_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def list_users(
+    skip: int = Query(
+        default=0,
+        example=0,
+        description="Quantos usuarios pular antes de comecar a listar (paginacao).",
+    ),
+    limit: int = Query(
+        default=100,
+        example=10,
+        description="Numero maximo de usuarios retornados na resposta.",
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    Lista os usuarios cadastrados no banco de dados.
+
+    Usa paginacao simples atraves dos parametros `skip` (quantos registros pular)
+    e `limit` (quantidade maxima a retornar). Por padrao retorna ate 100 usuarios
+    a partir do primeiro registro.
+
+    Exemplo pre-definido para teste no Swagger:
+    - skip = 0
+    - limit = 10
+
+    Esse exemplo retorna os 10 primeiros usuarios cadastrados, sem pular nenhum.
+    """
     users = db.scalars(select(User).offset(skip).limit(limit)).all()
     return {
         "message": "Lista entregue; mandei todos os dados como o senior pediu.",
