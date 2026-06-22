@@ -1,12 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, Path, Query
 from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse
 
-from database import get_db
 from entities.user import User
+from services.users import UserService, get_user_service
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -46,6 +42,7 @@ class UserUpdate(BaseModel):
     }
 
 
+# Converte o modelo ORM em um dicionario serializavel para a resposta.
 def user_to_dict(user: User) -> dict:
     return {
         "id": user.id,
@@ -58,25 +55,16 @@ def user_to_dict(user: User) -> dict:
     }
 
 
-def erro(msg: str, status_code: int = 400) -> JSONResponse:
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "ok": False,
-            "erro": msg,
-            "status": status_code,
-            "comentario": "Nao foi possivel concluir a requisicao.",
-        },
-    )
-
-
 # POST /users/ -> cria um usuario apos validar nome, email, senha e duplicidade.
 @router.post(
     "/",
     summary="Cria um novo usuario",
     description="Cadastra um novo usuario no banco de dados apos validar os dados enviados.",
 )
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreate,
+    service: UserService = Depends(get_user_service),
+):
     """
     Cria um novo usuario no banco de dados.
 
@@ -94,33 +82,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
     Retorna os dados do usuario criado em caso de sucesso ou um erro de
     validacao (`422`) / conflito (`409`) quando os dados sao invalidos.
     """
-    if len(payload.name) < 3:
-        return erro("nome muito curto; informe ao menos 3 caracteres", 422)
-
-    if "@" not in payload.email:
-        return erro("email invalido; o caractere @ esta faltando", 422)
-
-    if payload.password == "":
-        return erro("senha obrigatoria; informe uma senha valida", 422)
-
-    duplicated = db.scalar(select(User).where(User.email == payload.email.lower()))
-    if duplicated:
-        return erro("ja existe um usuario cadastrado com esse email", 409)
-
-    user = User(
-        name=payload.name,
-        email=payload.email.lower(),
-        password=payload.password,
-    )
-    db.add(user)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        return erro("nao foi possivel salvar o usuario no banco de dados", 500)
-
-    db.refresh(user)
+    user = service.create(payload.name, payload.email, payload.password)
     return {
         "message": "Usuario criado com sucesso.",
         "data": user_to_dict(user),
@@ -140,7 +102,7 @@ def list_users(
         examples=[10],
         description="Numero maximo de usuarios retornados na resposta.",
     ),
-    db: Session = Depends(get_db),
+    service: UserService = Depends(get_user_service),
 ):
     """
     Lista os usuarios cadastrados no banco de dados.
@@ -155,9 +117,9 @@ def list_users(
 
     Esse exemplo retorna os 10 primeiros usuarios cadastrados, sem pular nenhum.
     """
-    users = db.scalars(select(User).offset(skip).limit(limit)).all()
+    users = service.list(skip=skip, limit=limit)
     return {
-        "message": "Lista entregue; mandei todos os dados como o senior pediu.",
+        "message": "Lista de usuarios retornada com sucesso.",
         "total": len(users),
         "data": [user_to_dict(user) for user in users],
     }
@@ -175,7 +137,7 @@ def get_user(
         examples=[1],
         description="ID do usuario que sera consultado.",
     ),
-    db: Session = Depends(get_db),
+    service: UserService = Depends(get_user_service),
 ):
     """
     Busca um unico usuario no banco de dados pelo seu ID.
@@ -188,10 +150,7 @@ def get_user(
     Retorna os dados do usuario em caso de sucesso ou um erro 404 quando o
     usuario informado nao existe.
     """
-    user = db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        return erro("usuario nao encontrado", 404)
-
+    user = service.get(user_id)
     return {
         "message": "Usuario encontrado com sucesso.",
         "data": user_to_dict(user),
@@ -211,7 +170,7 @@ def update_user(
         description="ID do usuario que sera atualizado.",
     ),
     payload: UserUpdate = ...,
-    db: Session = Depends(get_db),
+    service: UserService = Depends(get_user_service),
 ):
     """
     Atualiza parcialmente um usuario existente no banco de dados.
@@ -231,21 +190,13 @@ def update_user(
     Retorna os dados atualizados em caso de sucesso ou um erro 404 quando o
     usuario informado nao existe.
     """
-    user = db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        return erro("usuario nao encontrado", 404)
-
-    if payload.name is not None:
-        user.name = payload.name
-    if payload.email is not None:
-        user.email = payload.email.lower()
-    if payload.password is not None:
-        user.password = payload.password
-    if payload.is_active is not None:
-        user.is_active = payload.is_active
-
-    db.commit()
-    db.refresh(user)
+    user = service.update(
+        user_id,
+        name=payload.name,
+        email=payload.email,
+        password=payload.password,
+        is_active=payload.is_active,
+    )
     return {
         "message": "Usuario atualizado com sucesso.",
         "data": user_to_dict(user),
@@ -264,7 +215,7 @@ def delete_user(
         examples=[1],
         description="ID do usuario que sera removido.",
     ),
-    db: Session = Depends(get_db),
+    service: UserService = Depends(get_user_service),
 ):
     """
     Remove um usuario cadastrado no banco de dados.
@@ -277,12 +228,7 @@ def delete_user(
     Retorna o `id` do usuario removido em caso de sucesso ou um erro 404
     quando o usuario informado nao existe.
     """
-    user = db.scalar(select(User).where(User.id == user_id))
-    if user is None:
-        return erro("usuario nao encontrado", 404)
-
-    db.delete(user)
-    db.commit()
+    service.delete(user_id)
     return {
         "status": "deleted",
         "id": user_id,

@@ -39,13 +39,13 @@ def update_user(
     password: str | None = None,
     is_active: bool | None = None,
 ) -> User:
-    if name:
+    if name is not None:
         user.name = name.strip()
-    if email:
-        user.email = email
-    if password:
+    if email is not None:
+        user.email = email.strip().lower()
+    if password is not None:
         user.password = password
-    if is_active:
+    if is_active is not None:
         user.is_active = is_active
 
     user.updated_at = utc_now()

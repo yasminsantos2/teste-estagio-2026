@@ -86,6 +86,52 @@ http://localhost:8000/api/users/docs
 
 ---
 
+## 🏗️ Arquitetura
+
+A aplicação segue uma **arquitetura em camadas**, com responsabilidades bem separadas:
+
+```mermaid
+flowchart TD
+    Client["👤 Cliente HTTP"] -->|requisicao| Router
+
+    subgraph App["Aplicação FastAPI"]
+        Router["Router (routes/users)<br/>HTTP + injecao de dependencia"]
+        Service["Service (services/users)<br/>regras de negocio + validacoes"]
+        Repository["Repository (repository/users)<br/>acesso a dados"]
+        Entity["Entity (entities/user)<br/>modelo ORM"]
+        Handler["Exception Handler (main)<br/>traduz erros de dominio"]
+    end
+
+    DB[("Banco de Dados<br/>SQLite")]
+
+    Router -->|get_user_service| Service
+    Service -->|funcoes de CRUD| Repository
+    Repository -->|SQLAlchemy| Entity
+    Entity --> DB
+
+    Service -. lanca .-> Errors{{"UserServiceError<br/>(404 / 409 / 422 / 500)"}}
+    Errors -. capturado por .-> Handler
+    Handler -->|resposta de erro padrao| Client
+    Router -->|resposta de sucesso| Client
+```
+
+**Fluxo de uma requisição:**
+
+1. O **Router** recebe a requisição HTTP e injeta o `UserService` via `Depends(get_user_service)`.
+2. O **Service** aplica as regras de negócio (validações, duplicidade) e orquestra a operação.
+3. O **Repository** executa o acesso ao banco usando SQLAlchemy.
+4. A **Entity** representa a tabela `users` no banco.
+5. Erros de negócio são lançados como exceções de domínio (`UserServiceError` e subclasses) e convertidos em respostas padronizadas pelo **Exception Handler** registrado no `main.py`.
+
+| Camada | Pasta | Responsabilidade |
+|---|---|---|
+| Router | `routes/users` | HTTP, validação de formato, injeção de dependência, formatação da resposta |
+| Service | `services/users` | Regras de negócio, validações de domínio, orquestração |
+| Repository | `repository/users` | Acesso a dados (queries e persistência) |
+| Entity | `entities/user` | Modelo ORM (mapeamento da tabela) |
+
+---
+
 ## 🧪 Testes
 
 O projeto possui uma suíte de testes automatizados com **pytest** que cobre todos os endpoints de usuários.
