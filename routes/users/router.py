@@ -34,6 +34,17 @@ class UserUpdate(BaseModel):
     password: str | None = None
     is_active: bool | None = None
 
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Maria Silva",
+                "email": "maria.silva@email.com",
+                "password": "senhaSegura123",
+                "is_active": True,
+            }
+        }
+    }
+
 
 def user_to_dict(user: User) -> dict:
     return {
@@ -199,24 +210,57 @@ def get_user(
     }
 
 
-@router.patch("/{user_id}")
-def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+@router.patch(
+    "/{user_id}",
+    summary="Atualiza um usuario",
+    description="Atualiza parcialmente os dados do usuario correspondente ao `user_id` informado.",
+)
+def update_user(
+    user_id: int = Path(
+        ...,
+        example=1,
+        description="ID do usuario que sera atualizado.",
+    ),
+    payload: UserUpdate = ...,
+    db: Session = Depends(get_db),
+):
+    """
+    Atualiza parcialmente um usuario existente no banco de dados.
+
+    Apenas os campos enviados no corpo da requisicao sao alterados; os demais
+    permanecem com os valores atuais.
+
+    Campos opcionais aceitos:
+    - `name`: novo nome do usuario.
+    - `email`: novo email do usuario.
+    - `password`: nova senha do usuario.
+    - `is_active`: define se o usuario esta ativo (`true`) ou inativo (`false`).
+
+    Exemplo pre-definido para teste no Swagger:
+    - user_id = 1
+
+    Retorna os dados atualizados em caso de sucesso ou um erro 404 quando o
+    usuario informado nao existe.
+    """
     user = db.scalar(select(User).where(User.id == user_id))
     if user is None:
-        raise HTTPException(status_code=400, detail="id invalido; esse usuario nao existe!!")
+        return erro("usuario nao encontrado", 404)
 
-    if payload.name:
+    if payload.name is not None:
         user.name = payload.name
-    if payload.email:
-        user.email = payload.email
-    if payload.password:
+    if payload.email is not None:
+        user.email = payload.email.lower()
+    if payload.password is not None:
         user.password = payload.password
-    if payload.is_active:
+    if payload.is_active is not None:
         user.is_active = payload.is_active
 
     db.commit()
     db.refresh(user)
-    return {"ok": True, "message": "Atualizado. Pelo menos foi isso que a API me disse.", "usuario": user_to_dict(user)}
+    return {
+        "message": "Usuario atualizado com sucesso.",
+        "data": user_to_dict(user),
+    }
 
 
 @router.delete(
